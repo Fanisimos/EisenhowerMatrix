@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eisenhower Matrix</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%237c5cfc'/%3E%3Cstop offset='100%25' stop-color='%23ff4d6a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Crect x='12' y='12' width='17' height='17' rx='3' fill='rgba(255,255,255,0.9)'/%3E%3Crect x='35' y='12' width='17' height='17' rx='3' fill='rgba(255,255,255,0.9)'/%3E%3Crect x='12' y='35' width='17' height='17' rx='3' fill='rgba(255,255,255,0.9)'/%3E%3Crect x='35' y='35' width='17' height='17' rx='3' fill='rgba(255,255,255,0.9)'/%3E%3C/svg%3E">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -475,6 +476,17 @@
     justify-content: center;
   }
 
+  .task-checkbox::before {
+    content: '';
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
   .task-checkbox:hover {
     border-color: var(--accent);
     transform: scale(1.15);
@@ -496,8 +508,52 @@
 
   @keyframes checkPop {
     0% { transform: scale(1); }
-    50% { transform: scale(1.4); }
+    30% { transform: scale(1.5); }
+    50% { transform: scale(0.9); }
+    70% { transform: scale(1.2); }
     100% { transform: scale(1); }
+  }
+
+  .task-card.celebrate {
+    animation: celebrateCard 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes celebrateCard {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(124, 92, 252, 0); }
+    15% { transform: scale(1.04); box-shadow: 0 0 20px 4px rgba(124, 92, 252, 0.3); }
+    30% { transform: scale(0.97); }
+    50% { transform: scale(1.02); box-shadow: 0 0 30px 8px rgba(124, 92, 252, 0.15); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(124, 92, 252, 0); }
+  }
+
+  .task-card.celebrate .task-checkbox.checked {
+    animation: checkSpin 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 16px var(--accent);
+  }
+
+  @keyframes checkSpin {
+    0% { transform: scale(1) rotate(0deg); }
+    40% { transform: scale(1.6) rotate(180deg); }
+    70% { transform: scale(0.9) rotate(360deg); }
+    100% { transform: scale(1) rotate(360deg); }
+  }
+
+  .task-card.completed .task-text {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.4;
+    pointer-events: none;
+    animation: rippleOut 0.7s ease-out forwards;
+  }
+
+  @keyframes rippleOut {
+    0% { width: 0; height: 0; opacity: 0.5; }
+    100% { width: 120px; height: 120px; opacity: 0; margin-left: -60px; margin-top: -60px; }
   }
 
   .task-text {
@@ -754,6 +810,32 @@
     line-height: 1;
     color: var(--text-dim);
   }
+
+  .sound-toggle {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .sound-toggle:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.08);
+  }
+
+  .sound-toggle.muted {
+    opacity: 0.4;
+  }
 </style>
 </head>
 <body>
@@ -781,6 +863,7 @@
         <div class="stat-value"><span class="streak-flame" id="streakDisplay">0</span></div>
         <div class="stat-label">Streak</div>
       </div>
+      <button class="sound-toggle" id="soundToggle" onclick="toggleSound()" aria-label="Toggle sound">&#128264;</button>
       <div class="theme-toggle-wrap">
         <span class="theme-icon" id="themeIcon">&#9790;</span>
         <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
@@ -1006,6 +1089,7 @@ function addTask(input) {
   input.value = '';
   saveData();
   render();
+  playAddSound();
 
   // Haptic-like feedback
   input.style.transform = 'scale(1.02)';
@@ -1018,6 +1102,7 @@ function deleteTask(q, i) {
   if (card) {
     card.style.transform = 'translateX(50px) scale(0.8)';
     card.style.opacity = '0';
+    playDeleteSound();
     setTimeout(() => {
       tasks[q].splice(i, 1);
       saveData();
@@ -1030,7 +1115,6 @@ function toggleTask(q, i) {
   tasks[q][i].done = !tasks[q][i].done;
   if (tasks[q][i].done) {
     completedCount++;
-    // Update streak
     const today = new Date().toDateString();
     const lastDate = localStorage.getItem('eisenhower_last_date');
     if (lastDate !== today) {
@@ -1039,12 +1123,53 @@ function toggleTask(q, i) {
     }
     saveData();
     render();
+
+    // Celebration animations on the card
+    const list = document.getElementById('list-' + q);
+    const card = list.children[i];
+    if (card) {
+      card.classList.add('celebrate');
+
+      // Ripple burst from checkbox
+      const checkbox = card.querySelector('.task-checkbox');
+      if (checkbox) {
+        const ripple = document.createElement('div');
+        ripple.className = 'ripple';
+        checkbox.style.position = 'relative';
+        checkbox.style.overflow = 'visible';
+        ripple.style.left = '50%';
+        ripple.style.top = '50%';
+        checkbox.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 700);
+      }
+
+      card.addEventListener('animationend', () => card.classList.remove('celebrate'), { once: true });
+    }
+
     burstConfetti();
-    showToast('Task completed! Keep going!');
+    playCompletionSound();
+    showToast(getCompletionMessage());
   } else {
+    if (completedCount > 0) completedCount--;
     saveData();
     render();
   }
+}
+
+function getCompletionMessage() {
+  const messages = [
+    'Task crushed!',
+    'One down, keep going!',
+    'Boom! Nailed it!',
+    'You\'re on fire!',
+    'Unstoppable!',
+    'That\'s the way!',
+    'Progress feels good!',
+    'Another one bites the dust!',
+    'Smashed it!',
+    'Keep that momentum!'
+  ];
+  return messages[Math.floor(Math.random() * messages.length)];
 }
 
 // ============ DRAG & DROP ============
@@ -1091,6 +1216,7 @@ document.querySelectorAll('.quadrant').forEach(quadrant => {
     tasks[targetQ].push(task);
     saveData();
     render();
+    playMoveSound();
     showToast(`Moved to ${LABELS[targetQ]}`);
   });
 });
@@ -1156,7 +1282,8 @@ function onTouchEnd(e) {
         tasks[targetQ].push(task);
         saveData();
         render();
-        showToast(`Moved to ${LABELS[targetQ]}`);
+        playMoveSound();
+    showToast(`Moved to ${LABELS[targetQ]}`);
       }
     }
 
@@ -1256,6 +1383,117 @@ function showToast(msg) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
+// ============ SOUND ============
+let soundEnabled = localStorage.getItem('eisenhower_sound') !== 'off';
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('eisenhower_sound', soundEnabled ? 'on' : 'off');
+  updateSoundIcon();
+  if (soundEnabled) playAddSound();
+}
+
+function updateSoundIcon() {
+  const btn = document.getElementById('soundToggle');
+  if (soundEnabled) {
+    btn.innerHTML = '&#128264;';
+    btn.classList.remove('muted');
+  } else {
+    btn.innerHTML = '&#128263;';
+    btn.classList.add('muted');
+  }
+}
+
+// Completion sounds - each one is a different musical phrase
+const completionSounds = [
+  // Major arpeggio up
+  function() {
+    playTone(523.25, 0.12, 0, 'sine');
+    playTone(659.25, 0.12, 0.1, 'sine');
+    playTone(783.99, 0.15, 0.2, 'sine');
+    playTone(1046.50, 0.25, 0.3, 'sine');
+  },
+  // Power up
+  function() {
+    playTone(440, 0.08, 0, 'square', 0.15);
+    playTone(554.37, 0.08, 0.07, 'square', 0.15);
+    playTone(659.25, 0.08, 0.14, 'square', 0.15);
+    playTone(880, 0.2, 0.21, 'square', 0.15);
+  },
+  // Sparkle
+  function() {
+    playTone(1318.5, 0.1, 0, 'sine');
+    playTone(1567.98, 0.1, 0.08, 'sine');
+    playTone(2093, 0.2, 0.16, 'sine');
+  },
+  // Victory fanfare mini
+  function() {
+    playTone(783.99, 0.12, 0, 'triangle');
+    playTone(783.99, 0.12, 0.12, 'triangle');
+    playTone(783.99, 0.12, 0.24, 'triangle');
+    playTone(1046.50, 0.3, 0.36, 'triangle');
+  },
+  // Boing pop
+  function() {
+    playTone(300, 0.06, 0, 'sine');
+    playTone(800, 0.06, 0.04, 'sine');
+    playTone(1200, 0.15, 0.08, 'sine');
+  },
+  // Happy chime
+  function() {
+    playTone(659.25, 0.15, 0, 'sine');
+    playTone(783.99, 0.15, 0.12, 'sine');
+    playTone(987.77, 0.15, 0.24, 'sine');
+    playTone(1174.66, 0.25, 0.36, 'sine');
+  }
+];
+
+function playCompletionSound() {
+  if (!soundEnabled) return;
+  const fn = completionSounds[Math.floor(Math.random() * completionSounds.length)];
+  fn();
+}
+
+function playAddSound() {
+  if (!soundEnabled) return;
+  playTone(880, 0.08, 0, 'sine', 0.2);
+  playTone(1100, 0.1, 0.06, 'sine', 0.15);
+}
+
+function playDeleteSound() {
+  if (!soundEnabled) return;
+  playTone(400, 0.1, 0, 'sawtooth', 0.1);
+  playTone(250, 0.15, 0.08, 'sawtooth', 0.08);
+}
+
+function playMoveSound() {
+  if (!soundEnabled) return;
+  playTone(600, 0.06, 0, 'sine', 0.15);
+  playTone(750, 0.08, 0.05, 'sine', 0.12);
+}
+
+function playTone(freq, duration, delay, type, vol) {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol || 0.25, ctx.currentTime + delay);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(ctx.currentTime + delay);
+  osc.stop(ctx.currentTime + delay + duration + 0.05);
+}
+
+updateSoundIcon();
+
 // ============ CONFETTI ============
 const confettiCanvas = document.getElementById('confetti');
 const ctx = confettiCanvas.getContext('2d');
@@ -1270,19 +1508,36 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 function burstConfetti() {
-  const colors = ['#ff4d6a', '#ffb347', '#4dc9f6', '#7c5cfc', '#a78bfa', '#34d399', '#fbbf24'];
-  for (let i = 0; i < 50; i++) {
+  const colors = ['#ff4d6a', '#ffb347', '#4dc9f6', '#7c5cfc', '#a78bfa', '#34d399', '#fbbf24', '#ff6b9d', '#c084fc'];
+  // Top shower - rains down across the full width
+  for (let i = 0; i < 120; i++) {
     particles.push({
       x: Math.random() * confettiCanvas.width,
-      y: confettiCanvas.height + 10,
-      vx: (Math.random() - 0.5) * 8,
-      vy: -(Math.random() * 14 + 6),
+      y: -20 - Math.random() * 60,
+      vx: (Math.random() - 0.5) * 6,
+      vy: Math.random() * 4 + 2,
       color: colors[Math.floor(Math.random() * colors.length)],
-      size: Math.random() * 6 + 3,
+      size: Math.random() * 10 + 5,
       rotation: Math.random() * 360,
-      rotSpeed: (Math.random() - 0.5) * 10,
+      rotSpeed: (Math.random() - 0.5) * 12,
       life: 1,
-      decay: 0.012 + Math.random() * 0.008
+      decay: 0.005 + Math.random() * 0.005
+    });
+  }
+  // Side bursts from left and right
+  for (let i = 0; i < 40; i++) {
+    const fromLeft = Math.random() > 0.5;
+    particles.push({
+      x: fromLeft ? -10 : confettiCanvas.width + 10,
+      y: confettiCanvas.height * (0.2 + Math.random() * 0.4),
+      vx: fromLeft ? (Math.random() * 10 + 4) : -(Math.random() * 10 + 4),
+      vy: (Math.random() - 0.5) * 8,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() * 10 + 5,
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 14,
+      life: 1,
+      decay: 0.006 + Math.random() * 0.005
     });
   }
   if (!confettiRunning) {
@@ -1305,7 +1560,13 @@ function animateConfetti() {
     ctx.rotate(p.rotation * Math.PI / 180);
     ctx.globalAlpha = Math.max(0, p.life);
     ctx.fillStyle = p.color;
-    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+    if (p.size > 9) {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+    }
     ctx.restore();
   });
 
