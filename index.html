@@ -562,6 +562,17 @@
     font-weight: 400;
     line-height: 1.4;
     transition: all 0.3s;
+    cursor: default;
+    border-radius: 6px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+  }
+
+  .task-text[contenteditable="true"] {
+    cursor: text;
+    outline: none;
+    background: var(--card-hover);
+    box-shadow: 0 0 0 2px var(--accent);
   }
 
   .task-delete {
@@ -1067,6 +1078,37 @@ function render() {
         <span class="task-text">${escapeHtml(task.text)}</span>
         <button class="task-delete" onclick="deleteTask('${q}', ${i})">&#10005;</button>
       `;
+
+      // Double-click to edit task text
+      const textEl = card.querySelector('.task-text');
+      textEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        textEl.contentEditable = 'true';
+        textEl.focus();
+        // Select all text
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        card.draggable = false;
+      });
+      const finishEdit = () => {
+        textEl.contentEditable = 'false';
+        card.draggable = true;
+        const newText = textEl.textContent.trim();
+        if (newText && newText !== task.text) {
+          tasks[q][i].text = newText;
+          saveData();
+        } else if (!newText) {
+          textEl.textContent = task.text;
+        }
+      };
+      textEl.addEventListener('blur', finishEdit);
+      textEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); textEl.blur(); }
+        if (e.key === 'Escape') { textEl.textContent = task.text; textEl.blur(); }
+      });
 
       // Drag events
       card.addEventListener('dragstart', onDragStart);
