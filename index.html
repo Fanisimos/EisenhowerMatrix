@@ -1000,6 +1000,12 @@ let tasks = {};
 let completedCount = 0;
 let streak = 0;
 
+function getCompletedCount() {
+  let count = 0;
+  QUADRANTS.forEach(q => { tasks[q].forEach(t => { if (t.done) count++; }); });
+  return count;
+}
+
 function loadData() {
   try {
     const saved = JSON.parse(localStorage.getItem('eisenhower_tasks'));
@@ -1008,7 +1014,7 @@ function loadData() {
   } catch {
     QUADRANTS.forEach(q => tasks[q] = []);
   }
-  completedCount = parseInt(localStorage.getItem('eisenhower_completed') || '0');
+  completedCount = getCompletedCount();
   streak = parseInt(localStorage.getItem('eisenhower_streak') || '0');
 
   // Check streak (daily)
@@ -1018,11 +1024,18 @@ function loadData() {
     const diff = (new Date(today) - new Date(lastDate)) / 86400000;
     if (diff > 1) { streak = 0; localStorage.setItem('eisenhower_streak', '0'); }
   }
+  // One-time reset: clear stale completed counter and streak
+  if (!localStorage.getItem('eisenhower_v2_reset')) {
+    streak = 0;
+    localStorage.setItem('eisenhower_streak', '0');
+    localStorage.removeItem('eisenhower_completed');
+    localStorage.setItem('eisenhower_v2_reset', '1');
+  }
 }
 
 function saveData() {
   localStorage.setItem('eisenhower_tasks', JSON.stringify(tasks));
-  localStorage.setItem('eisenhower_completed', completedCount);
+  completedCount = getCompletedCount();
   localStorage.setItem('eisenhower_streak', streak);
 }
 
@@ -1114,7 +1127,6 @@ function deleteTask(q, i) {
 function toggleTask(q, i) {
   tasks[q][i].done = !tasks[q][i].done;
   if (tasks[q][i].done) {
-    completedCount++;
     const today = new Date().toDateString();
     const lastDate = localStorage.getItem('eisenhower_last_date');
     if (lastDate !== today) {
@@ -1150,7 +1162,6 @@ function toggleTask(q, i) {
     playCompletionSound();
     showToast(getCompletionMessage());
   } else {
-    if (completedCount > 0) completedCount--;
     saveData();
     render();
   }
